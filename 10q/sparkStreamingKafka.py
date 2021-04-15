@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
     for x in range(50):
         spark.sql("SELECT CONCAT((CASE WHEN TOPIC = 'twitter' THEN '<T> '" 
-                               "WHEN TOPIC = 'facebook' THEN '<F> '" 
-                               "WHEN TOPIC = 'instagram' THEN '<I> 'END), value) as MENSAGEM FROM networks").show()
+                                        "WHEN TOPIC = 'facebook' THEN '<F> '" 
+                                        "WHEN TOPIC = 'instagram' THEN '<I> 'END), value) as MENSAGEM FROM networks").show()
 
         sleep(5)
 
