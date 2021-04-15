@@ -3,7 +3,12 @@ import random
 import threading
 import time
 
+from pyspark.sql.types import StringType, IntegerType, StructType, StructField, DoubleType
 from kafka import KafkaConsumer, KafkaProducer
+# python3 producer_consumer.py
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
 
 class Producer(threading.Thread):
 
@@ -23,24 +28,53 @@ class Producer(threading.Thread):
                 message = [id_, streaming]
                 data[id_] = message
 
-            producer.send('topic', message)
+            producer.send('topic', streaming)
             time.sleep(random.randint(0, 5))
 
 class Consumer(threading.Thread):
 
     def run(self):
-        stream = KafkaConsumer(bootstrap_servers='localhost:9092', auto_offset_reset='latest')
-        stream.subscribe(['topic'])
-        numeroTuplas = 0
+        # stream = KafkaConsumer(bootstrap_servers='localhost:9092', auto_offset_reset='latest')
+        # stream.subscribe(['topic'])
+        #spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.1 producer_consumer.py
+    
+        spark = SparkSession \
+            .builder \
+            .appName("wordCountStructured") \
+            .getOrCreate()
 
-        # exibir o número de tuplas que possuem registros com idade superior a 30 anos, 
-        # considerando apenas os últimos 30 segundos da janela de tempo. (1,0 ponto)
-        for tuple in stream:
-            obj = json.loads(tuple.value)[1]
+        schema = StructType([
+                    StructField('idade', StringType()),
+                    StructField('altura', StringType()),
+                    StructField('peso', StringType())
+                ])
 
-            if(obj['idade'] > 30):
-                numeroTuplas += 1
-                print('Número de tuplas com idade > 30: ', numeroTuplas)
+        kafka_df = spark.readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", "localhost:9092") \
+            .option("subscribe", "topic") \
+            .load() \
+            .selectExpr("CAST(value AS STRING)")
+
+        #teste = kafka_df.selectExpr("CAST(value AS STRING)", "CAST(timestamp AS STRING)")
+
+        #kafka_df.select(from_json(col("value"), schema))
+
+        #words_df = kafka_df.select(expr("explode(split(value,',')) as word"))
+
+        #counts_df = words_df.groupBy("word").count()
+
+        # teste.withColumn("value", from_json("value", schema))\
+        #             .select(col('value.*'))
+        
+        kafka_df = kafka_df.withColumn("value", from_json("value", schema)) #\
+                    #.select(col("value.*"))\
+
+        kafka_df.writeStream \
+            .format("console") \
+            .start()
+        
+        #kafka_df.awaitTermination()
 
 if __name__ == '__main__':
     threads = [

@@ -24,40 +24,29 @@ if __name__ == "__main__":
 
     spark = SparkSession \
         .builder \
-        .appName("wordCountStructured") \
+        .appName("networksStructured") \
         .getOrCreate()
 
     kafka_df = spark.readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", "localhost:9092") \
-        .option("subscribe", "facebook, twitter, instagram, other") \
+        .option("subscribe", "facebook, twitter, instagram") \
         .load()\
-        .selectExpr("CAST(topic AS STRING)", "CAST(value AS STRING)")
+        .selectExpr("CAST(topic AS STRING)", "CAST(value AS STRING)", "CAST(timestamp AS STRING)")
 
     query = kafka_df\
-                        .where("topic <> 'other'")\
-                        .writeStream\
-                        .queryName("networks")\
-                        .format("memory").start()
+                    .where("topic <> 'other'")\
+                    .writeStream\
+                    .queryName("networks")\
+                    .format("memory").start()
 
-    words_df = kafka_df.select(expr("explode(split(value,' ')) as word")).where("topic = 'other'")
-    counts_df = words_df.where("word not in ('streaming', 'uni7', 'data', 'science')")
 
-    word_count_query = counts_df.writeStream \
-        .queryName("naoentendo")\
-        .format("memory") \
-        .start()
-            
     for x in range(50):
-        # spark.sql("SELECT (CASE WHEN TOPIC = 'twitter' THEN '<T>'" \
-        #                        "WHEN TOPIC = 'facebook' THEN '<F>'" \
-        #                        "WHEN TOPIC = 'instagram' THEN '<I>'END) AS ORIGEM, "
-        #                        "value as MENSAGEM " 
-        #                         "FROM networks"
-        # ).show()
-        spark.sql("SELECT * from naoentendo")
+        spark.sql("SELECT CONCAT((CASE WHEN TOPIC = 'twitter' THEN '<T> '" 
+                               "WHEN TOPIC = 'facebook' THEN '<F> '" 
+                               "WHEN TOPIC = 'instagram' THEN '<I> 'END), value) as MENSAGEM FROM networks").show()
+
         sleep(5)
 
     
     query.awaitTermination()
-    word_count_query.awaitTermination()
